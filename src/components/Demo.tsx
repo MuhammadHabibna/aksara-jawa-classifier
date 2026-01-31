@@ -111,15 +111,18 @@ export default function Demo() {
                         </span>
                     )}
                     {modelStatus === 'error' && (
-                        <div className="flex flex-col items-center gap-2">
-                            <span className="text-red-600 bg-red-50 px-3 py-1 rounded-full font-medium">
-                                {loadMessage}
+                        <div className="flex flex-col items-center gap-2 max-w-lg text-center">
+                            <span className="text-red-800 bg-red-100 px-3 py-1 rounded-full font-medium">
+                                Failed to load model
                             </span>
+                            <pre className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200 whitespace-pre-wrap break-words w-full text-left font-mono">
+                                {loadMessage}
+                            </pre>
                             <button
                                 onClick={initModel}
-                                className="text-sm px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 font-semibold shadow-sm transition-colors"
+                                className="text-sm px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 font-semibold shadow-sm transition-colors mt-2"
                             >
-                                Try Again
+                                Try Again / Retry
                             </button>
                         </div>
                     )}

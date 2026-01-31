@@ -68,3 +68,13 @@ This project is optimized for Cloudflare Pages (Static Site Hosting).
 - **Styling**: Tailwind CSS
 - **Inference**: ONNX Runtime Web
 - **Icons**: Lucide React
+
+## Model Download Troubleshooting
+If you see "Failed to load model", check the following:
+1.  **Network**: specific endpoints like `github.com` or `objects.githubusercontent.com` might be blocked.
+2.  **Console**: Open DevTools (F12) -> Console. Look for "Failed to fetch" errors.
+3.  **Network Tab**: Check for red (failed) requests to `.onnx` files.
+    - If Status is 404: The release tag or filename in `config.ts` might be wrong.
+    - If Status is 403: The direct link might have expired (for direct asset URLs).
+    - If CORS error: The proxy (`/download-model`) might be failing, or the fallback URL doesn't support CORS.
+4.  **Solution**: Copy the "Link Address" of the `aksara_jawa_resnet18.onnx` asset from the [Release Page](https://github.com/MuhammadHabibna/aksara-jawa-classifier/releases) and update `MODEL_URLS` in `src/config.ts`.
