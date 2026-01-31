@@ -1,6 +1,6 @@
 import * as ort from 'onnxruntime-web';
 import { Tensor } from 'onnxruntime-web';
-import { MODEL_CONFIG } from '../config';
+import { MODEL_URL } from '../config';
 
 // Configure ONNX Runtime to use Wasm backend
 ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/';
@@ -9,26 +9,67 @@ ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/di
 
 let session: ort.InferenceSession | null = null;
 
-export async function loadModel(onProgress?: (msg: string) => void): Promise<ort.InferenceSession> {
+export async function loadModel(onProgress?: (msg: string, progress?: number) => void): Promise<ort.InferenceSession> {
     if (session) {
-        onProgress?.("Model already loaded from cache");
+        onProgress?.("Model already loaded from cache", 100);
         return session;
     }
 
     try {
-        onProgress?.("Downloading model... (this may take a while initially)");
+        onProgress?.("Initiating download...", 0);
 
-        // Explicitly fetching to show progress could be added, but passing url to create works too.
-        session = await ort.InferenceSession.create(MODEL_CONFIG.modelPath, {
+        const response = await fetch(MODEL_URL);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`);
+        }
+
+        const contentLength = response.headers.get('content-length');
+        const total = contentLength ? parseInt(contentLength, 10) : 0;
+        let loaded = 0;
+
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("ReadableStream not supported in this browser.");
+
+        const chunks: Uint8Array[] = [];
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            if (value) {
+                chunks.push(value);
+                loaded += value.length;
+                if (total > 0) {
+                    const percent = Math.round((loaded / total) * 100);
+                    onProgress?.(`Downloading... ${percent}%`, percent);
+                } else {
+                    const mb = (loaded / 1024 / 1024).toFixed(1);
+                    onProgress?.(`Downloading... ${mb}MB`, 0);
+                }
+            }
+        }
+
+        // Concatenate chunks
+        const modelBuffer = new Uint8Array(loaded);
+        let offset = 0;
+        for (const chunk of chunks) {
+            modelBuffer.set(chunk, offset);
+            offset += chunk.length;
+        }
+
+        onProgress?.("Initializing inference session...", 100); // UI should allow spinning here
+
+        session = await ort.InferenceSession.create(modelBuffer, {
             executionProviders: ['wasm'],
             graphOptimizationLevel: 'all',
         });
 
-        onProgress?.("Model loaded successfully");
+        onProgress?.("Model loaded successfully", 100);
         return session;
     } catch (e) {
+        session = null;
         console.error("Failed to load model", e);
-        throw new Error("Failed to load the model. Please check your network or if model.onnx exists.");
+        throw e; // Re-throw to be handled by caller
     }
 }
 

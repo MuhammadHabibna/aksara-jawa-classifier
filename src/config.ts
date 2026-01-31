@@ -14,8 +14,9 @@ export const MODEL_METADATA = {
     validationSamples: 1999,
 };
 
+export const MODEL_URL = "https://github.com/MuhammadHabibna/aksara-jawa-classifier/releases/download/model-v1/aksara_jawa_resnet18.onnx";
+
 export const MODEL_CONFIG = {
-    modelPath: '/model/aksara_jawa_resnet18.onnx',
     inputSize: 224,
     mean: [0.485, 0.456, 0.406],
     std: [0.229, 0.224, 0.225],

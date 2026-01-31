@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 export default function Demo() {
     const [modelStatus, setModelStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
     const [loadMessage, setLoadMessage] = useState<string>('');
+    const [downloadProgress, setDownloadProgress] = useState<number>(0);
 
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -18,20 +19,27 @@ export default function Demo() {
     const [predictions, setPredictions] = useState<{ label: string, prob: number }[]>([]);
     const [inferenceTime, setInferenceTime] = useState(0);
 
-    // Load model on mount
-    useEffect(() => {
-        async function initModel() {
-            try {
-                setModelStatus('loading');
-                setLoadMessage('Initializing session...');
-                await loadModel((msg) => setLoadMessage(msg));
-                setModelStatus('ready');
-            } catch (e) {
-                console.error(e);
-                setModelStatus('error');
-                setLoadMessage(`Failed to load model: ${e instanceof Error ? e.message : 'Unknown error'}`);
-            }
+    // Load model
+    const initModel = async () => {
+        try {
+            setModelStatus('loading');
+            setLoadMessage('Initializing session...');
+            setDownloadProgress(0);
+
+            await loadModel((msg, progress) => {
+                setLoadMessage(msg);
+                if (progress !== undefined) setDownloadProgress(progress);
+            });
+
+            setModelStatus('ready');
+        } catch (e) {
+            console.error(e);
+            setModelStatus('error');
+            setLoadMessage(`Failed to load model: ${e instanceof Error ? e.message : 'Unknown error'}`);
         }
+    };
+
+    useEffect(() => {
         initModel();
     }, []);
 
@@ -81,22 +89,39 @@ export default function Demo() {
                 <p className="text-gray-500 mt-2">Upload gambar aksara Jawa untuk diklasifikasi.</p>
 
                 {/* Model Status Indicator */}
-                <div className="mt-4 flex items-center justify-center gap-2 text-sm">
-                    <span className="text-gray-500">Model Status:</span>
+                <div className="mt-4 flex flex-col items-center justify-center gap-3 text-sm min-h-[40px]">
                     {modelStatus === 'loading' && (
-                        <span className="flex items-center text-yellow-600 bg-yellow-50 px-3 py-1 rounded-full">
-                            <Loader2 className="w-3 h-3 mr-2 animate-spin" /> {loadMessage}
-                        </span>
+                        <div className="flex flex-col items-center gap-2 w-full max-w-md">
+                            <span className="flex items-center text-yellow-600 bg-yellow-50 px-3 py-1 rounded-full">
+                                <Loader2 className="w-3 h-3 mr-2 animate-spin" /> {loadMessage}
+                            </span>
+                            {/* Progress Bar */}
+                            <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                <div
+                                    className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                                    style={{ width: `${downloadProgress}%` }}
+                                ></div>
+                            </div>
+                            <span className="text-xs text-gray-500">{downloadProgress}%</span>
+                        </div>
                     )}
                     {modelStatus === 'ready' && (
-                        <span className="flex items-center text-green-700 bg-green-50 px-3 py-1 rounded-full font-medium">
+                        <span className="flex items-center text-green-700 bg-green-50 px-3 py-1 rounded-full font-medium animate-in fade-in">
                             Model Loaded & Ready
                         </span>
                     )}
                     {modelStatus === 'error' && (
-                        <span className="text-red-600 bg-red-50 px-3 py-1 rounded-full font-medium">
-                            {loadMessage}
-                        </span>
+                        <div className="flex flex-col items-center gap-2">
+                            <span className="text-red-600 bg-red-50 px-3 py-1 rounded-full font-medium">
+                                {loadMessage}
+                            </span>
+                            <button
+                                onClick={initModel}
+                                className="text-sm px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 font-semibold shadow-sm transition-colors"
+                            >
+                                Try Again
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
