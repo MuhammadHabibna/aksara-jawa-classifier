@@ -15,10 +15,9 @@ export const MODEL_METADATA = {
 };
 
 // 1. Proxy (solves CORS), 2. Release (fallback), 3. Direct (manual fallback)
+// 1. Proxy (solves CORS), 2. Release (fallback), 3. Direct (manual fallback)
 export const MODEL_URLS = [
     "/download-model",
-    "https://github.com/MuhammadHabibna/aksara-jawa-classifier/releases/download/model-v1/aksara_jawa_resnet18.onnx",
-    // "https://objects.githubusercontent.com/github-production-release-asset-2e65be/..." // Isi dengan copy link address dari asset di halaman release jika perlu
 ];
 
 export const MODEL_CONFIG = {

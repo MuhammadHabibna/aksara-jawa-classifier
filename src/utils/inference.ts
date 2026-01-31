@@ -3,7 +3,8 @@ import { Tensor } from 'onnxruntime-web';
 import { MODEL_URLS } from '../config';
 
 // Configure ONNX Runtime to use Wasm backend
-ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/';
+// Configure ONNX Runtime to use Wasm backend
+// wasmPaths is configured in main.tsx for global coverage
 // Note: Using CDN is safer for static deployment if copying wasm files is tricky, 
 // but we can also copy them. For now, CDN is reliable for demo.
 
@@ -15,79 +16,73 @@ export async function loadModel(onProgress?: (msg: string, progress?: number) =>
         return session;
     }
 
-    const errors: string[] = [];
+    const url = MODEL_URLS[0];
+    if (!url) throw new Error("No model URL configured");
 
-    for (const url of MODEL_URLS) {
-        if (!url || url.startsWith("https://objects.githubusercontent.com") && url.includes("...")) {
-            continue; // Skip placeholders
+    try {
+        onProgress?.(`Starting download from: ${url}`, 0);
+        console.log(`[Model Loader] Fetching: ${url}`);
+
+        const response = await fetch(url, { method: "GET", cache: "no-store" });
+
+        if (!response.ok) {
+            // Try to read a bit of the body for debugging
+            const text = await response.text().catch(() => "No text body");
+            const snippet = text.slice(0, 200);
+            throw new Error(`HTTP ${response.status} ${response.statusText}\nBody snippet: ${snippet}`);
         }
 
-        try {
-            onProgress?.(`Attempting to load from: ${url}`, 0);
-            console.log(`[Model Loader] Trying URL: ${url}`);
+        const contentLength = response.headers.get('content-length');
+        const total = contentLength ? parseInt(contentLength, 10) : 0;
+        let loaded = 0;
 
-            const response = await fetch(url, { method: "GET", cache: "no-store" });
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("ReadableStream not supported in this browser.");
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status} ${response.statusText}`);
-            }
+        const chunks: Uint8Array[] = [];
 
-            const contentLength = response.headers.get('content-length');
-            const total = contentLength ? parseInt(contentLength, 10) : 0;
-            let loaded = 0;
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-            const reader = response.body?.getReader();
-            if (!reader) throw new Error("ReadableStream not supported in this browser.");
-
-            const chunks: Uint8Array[] = [];
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                if (value) {
-                    chunks.push(value);
-                    loaded += value.length;
-                    if (total > 0) {
-                        const percent = Math.round((loaded / total) * 100);
-                        onProgress?.(`Downloading... ${percent}%`, percent);
-                    } else {
-                        const mb = (loaded / 1024 / 1024).toFixed(1);
-                        onProgress?.(`Downloading... ${mb}MB`, 0);
-                    }
+            if (value) {
+                chunks.push(value);
+                loaded += value.length;
+                if (total > 0) {
+                    const percent = Math.round((loaded / total) * 100);
+                    onProgress?.(`Downloading... ${percent}%`, percent);
+                } else {
+                    const mb = (loaded / 1024 / 1024).toFixed(1);
+                    onProgress?.(`Downloading... ${mb}MB`, 0);
                 }
             }
-
-            // Concatenate chunks
-            const modelBuffer = new Uint8Array(loaded);
-            let offset = 0;
-            for (const chunk of chunks) {
-                modelBuffer.set(chunk, offset);
-                offset += chunk.length;
-            }
-
-            onProgress?.("Initializing inference session...", 100);
-
-            session = await ort.InferenceSession.create(modelBuffer, {
-                executionProviders: ['wasm'],
-                graphOptimizationLevel: 'all',
-            });
-
-            onProgress?.("Model loaded successfully", 100);
-            return session;
-
-        } catch (e) {
-            console.error(`[Model Loader] Failed '${url}':`, e);
-            const msg = e instanceof Error ? e.message : String(e);
-            errors.push(`URL: ${url} -> ${msg}`);
-            // Continue to next URL
         }
-    }
 
-    // If we get here, all URLs failed
-    session = null;
-    const errorMsg = `All model URLs failed.\n${errors.join('\n')}`;
-    throw new Error(errorMsg);
+        // Concatenate chunks
+        const modelBuffer = new Uint8Array(loaded);
+        let offset = 0;
+        for (const chunk of chunks) {
+            modelBuffer.set(chunk, offset);
+            offset += chunk.length;
+        }
+
+        onProgress?.("Initializing inference session (WASM)...", 100);
+
+        // explicitly use current buffer, do not use file path
+        session = await ort.InferenceSession.create(modelBuffer, {
+            executionProviders: ['wasm'],
+            graphOptimizationLevel: 'all',
+        });
+
+        onProgress?.("Model loaded successfully", 100);
+        return session;
+
+    } catch (e) {
+        session = null;
+        console.error(`[Model Loader] Error loading ${url}:`, e);
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new Error(`Failed to load model from ${url}.\n${msg}`);
+    }
 }
 
 export async function runInference(inputTensor: Tensor): Promise<Float32Array> {

@@ -77,4 +77,11 @@ If you see "Failed to load model", check the following:
     - If Status is 404: The release tag or filename in `config.ts` might be wrong.
     - If Status is 403: The direct link might have expired (for direct asset URLs).
     - If CORS error: The proxy (`/download-model`) might be failing, or the fallback URL doesn't support CORS.
-4.  **Solution**: Copy the "Link Address" of the `aksara_jawa_resnet18.onnx` asset from the [Release Page](https://github.com/MuhammadHabibna/aksara-jawa-classifier/releases) and update `MODEL_URLS` in `src/config.ts`.
+4.  **Solution**: Ensure the proxy is working. Check `functions/download-model.js` and `vite.config.ts`. The app now relies on `/download-model` only.
+
+## Verification Steps
+1.  Open `https://<your-domain>/download-model` in browser -> should start downloading the ONNX file.
+2.  Open DevTools -> Network -> Reload app.
+    - Check request to `/download-model` (Status 200).
+    - Check request to `ort-wasm.wasm` (Status 200, from `cdn.jsdelivr.net`).
+3.  If both work but app says "Failed", check Console for detailed error.
