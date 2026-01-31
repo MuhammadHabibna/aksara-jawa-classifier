@@ -1,30 +1,39 @@
-export async function onRequest(context) {
-    const MODEL_URL = "https://github.com/MuhammadHabibna/aksara-jawa-classifier/releases/download/model-v1/aksara_jawa_resnet18.onnx";
+export async function onRequestGet() {
+    const MODEL_URL =
+        "https://github.com/MuhammadHabibna/aksara-jawa-classifier/releases/download/model-v1/aksara_jawa_resnet18.onnx";
 
-    try {
-        const response = await fetch(MODEL_URL);
+    // fetch upstream
+    const upstream = await fetch(MODEL_URL, {
+        redirect: "follow",
+        headers: {
+            "User-Agent": "cf-pages-model-proxy",
+            "Accept": "application/octet-stream",
+        },
+    });
 
-        // Check if the fetch was successful
-        if (!response.ok) {
-            return new Response(`Failed to fetch model: ${response.statusText}`, { status: response.status });
-        }
-
-        // Reconstruct the response to ensure headers are suitable for the client
-        // We stream the body directly
-        const newHeaders = new Headers(response.headers);
-        newHeaders.set('Access-Control-Allow-Origin', '*');
-
-        // Explicitly set content type if missing or generic
-        if (!newHeaders.get('content-type')) {
-            newHeaders.set('content-type', 'application/octet-stream');
-        }
-
-        return new Response(response.body, {
-            status: response.status,
-            statusText: response.statusText,
-            headers: newHeaders
-        });
-    } catch (err) {
-        return new Response(`Proxy Error: ${err.message}`, { status: 500 });
+    if (!upstream.ok) {
+        return new Response(
+            `Upstream error: ${upstream.status} ${upstream.statusText}`,
+            {
+                status: 502,
+                headers: {
+                    "Access-Control-Allow-Origin": "*",
+                },
+            }
+        );
     }
+
+    // 🔴 IMPORTANT: buffer the file (NO STREAMING)
+    const buffer = await upstream.arrayBuffer();
+
+    return new Response(buffer, {
+        status: 200,
+        headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Content-Type": "application/octet-stream",
+            "Cache-Control": "public, max-age=31536000, immutable",
+        },
+    });
 }

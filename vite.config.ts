@@ -9,7 +9,7 @@ export default defineConfig({
       '/download-model': {
         target: 'https://github.com/MuhammadHabibna/aksara-jawa-classifier/releases/download/model-v1/aksara_jawa_resnet18.onnx',
         changeOrigin: true,
-        rewrite: (path) => '', // Remove the path, just fetch the target
+        rewrite: () => '', // Remove the path, just fetch the target
       }
     }
   }
